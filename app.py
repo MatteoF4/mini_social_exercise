@@ -717,9 +717,9 @@ def admin_dashboard():
         risk_label, risk_sort_key = get_risk_profile(user_risk_score)
         user_dict['risk_label'] = risk_label
         user_dict['risk_sort_key'] = risk_sort_key
+        user_dict['risk_score'] = round(user_risk_score, 2)
         user_dict['risk_score'] = min(5.0, round(user_risk_score, 2))
-        all_users.append(user_dict)
-
+    
     all_users.sort(key=lambda x: x['risk_score'], reverse=True)
     total_users = len(all_users)
     users = all_users[users_offset : users_offset + PAGE_SIZE]
@@ -925,22 +925,49 @@ def user_risk_analysis(user_id):
             password: admin
         Then, navigate to the /admin endpoint. (http://localhost:8080/admin)
     """
-    
-    score = 0
 
+    """
+    User risk analysis: Assign risk scores to each user by implementing the user_risk_analysis 
+    function. This function returns a risk score for a given user based on rules presented on 
+    the Rules page. Identify the top 5 highest risk users. Think of and implement one more 
+    risk prediction measure you think is important to keep the platform safe.
+    """
+
+    # profile_score
+    user_profile = query_db('SELECT profile FROM users WHERE id=?', (user_id,), one=True)
+    profile_score = 0
+    if(user_profile and user_profile['profile']):
+        _, profile_score = moderate_content(user_profile['profile'])
+
+    # average_post_score
     user_posts = query_db('SELECT content FROM posts WHERE user_id=?', (user_id,))
-    for post in user_posts:
-        _, post_risk_score = moderate_content(post['content'])
-        if post_risk_score > 0:
-            score += max(1, post_risk_score)
-
+    posts_number = len(user_posts)
+    average_post_score = 0
+    if(posts_number > 0):
+        for post in user_posts:
+            _, post_risk_score = moderate_content(post['content'])
+            average_post_score += post_risk_score
+        average_post_score /= posts_number
+    
+    # average_comment_score
     user_comments = query_db('SELECT content FROM comments WHERE user_id=?', (user_id,))
-    for comment in user_comments:
-        _, comment_risk_score = moderate_content(comment['content'])
-        if comment_risk_score > 0:
-            score += max(1, comment_risk_score)
-
-    return score
+    comments_number = len(user_comments)
+    average_comment_score = 0
+    if(comments_number > 0):
+        for comment in user_comments:
+            _, comment_risk_score = moderate_content(comment['content'])
+            average_comment_score += comment_risk_score
+        average_comment_score /= comments_number
+    
+    # Calculate total score and apply additional penalties based on user's age
+    user_risk_score = profile_score + average_post_score*3 + average_comment_score
+    user_age = query_db('SELECT julianday("now")-julianday(created_at) AS age FROM users WHERE id=?', (user_id,), one=True)['age']
+    if(user_age < 7):
+        user_risk_score *= 1.5
+    if(user_age < 30):
+        user_risk_score *= 1.2
+    
+    return user_risk_score
 
     
 # Task 3.3
