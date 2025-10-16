@@ -320,7 +320,8 @@ def user_profile(username):
                            comments=comments,
                            followers_count=followers_count, 
                            following_count=following_count,
-                           is_following=is_currently_following)
+                           is_following=is_currently_following,
+                           danger=True)
     
 
 @app.route('/u/<username>/followers')
@@ -874,12 +875,17 @@ def recommend(user_id, filter_following):
     """
     Args:
         user_id: The ID of the current user.
-        filter_following: Boolean, True if we only want to see recommendations from followed users.
+        filter_following: Boolean, True if we only want to see recommendations 
+        from followed users.
 
     Returns:
         A list of 5 recommended posts, in reverse-chronological order.
 
-    To test whether your recommendation algorithm works, let's pretend we like the DIY topic. Here are some users that often post DIY comment and a few example posts. Make sure your account did not engage with anything else. You should test your algorithm with these and see if your recommendation algorithm picks up on your interest in DIY and starts showing related content.
+    To test whether your recommendation algorithm works, let's pretend we like 
+    the DIY topic. Here are some users that often post DIY comment and a few example 
+    posts. Make sure your account did not engage with anything else. You should test 
+    your algorithm with these and see if your recommendation algorithm picks up on 
+    your interest in DIY and starts showing related content.
     
     Users: @starboy99, @DancingDolphin, @blogger_bob
     Posts: 1810, 1875, 1880, 2113
@@ -892,7 +898,14 @@ def recommend(user_id, filter_following):
 
     recommended_posts = {} 
 
-    return recommended_posts;
+    # identify liked posts from the user
+    # identify 10 most common words (exlclude grammar words) in those posts
+    # filter following
+    # select all postts
+    # removed already-liked posts and the ones he posted himself
+    # return the ones that contain the top 10 words
+
+    return recommended_posts
 
 # Task 3.2
 def user_risk_analysis(user_id):
@@ -901,7 +914,11 @@ def user_risk_analysis(user_id):
         user_id: The ID of the user on which we perform risk analysis.
 
     Returns:
-        A float number score showing the risk associated with this user. There are no strict rules or bounds to this score, other than that a score of less than 1.0 means no risk, 1.0 to 3.0 is low risk, 3.0 to 5.0 is medium risk and above 5.0 is high risk. (An upper bound of 5.0 is applied to this score elsewhere in the codebase) 
+        A float number score showing the risk associated with this user. There are no 
+        strict rules or bounds to this score, other than that a score of less than 1.0 
+        means no risk, 1.0 to 3.0 is low risk, 3.0 to 5.0 is medium risk and above 5.0 
+        is high risk. (An upper bound of 5.0 is applied to this score elsewhere in the 
+        codebase) 
         
         You will be able to check the scores by logging in with the administrator account:
             username: admin
@@ -911,7 +928,19 @@ def user_risk_analysis(user_id):
     
     score = 0
 
-    return score;
+    user_posts = query_db('SELECT content FROM posts WHERE user_id=?', (user_id,))
+    for post in user_posts:
+        _, post_risk_score = moderate_content(post['content'])
+        if post_risk_score > 0:
+            score += max(1, post_risk_score)
+
+    user_comments = query_db('SELECT content FROM comments WHERE user_id=?', (user_id,))
+    for comment in user_comments:
+        _, comment_risk_score = moderate_content(comment['content'])
+        if comment_risk_score > 0:
+            score += max(1, comment_risk_score)
+
+    return score
 
     
 # Task 3.3
@@ -921,10 +950,17 @@ def moderate_content(content):
         content: the text content of a post or comment to be moderated.
         
     Returns: 
-        A tuple containing the moderated content (string) and a severity score (float). There are no strict rules or bounds to the severity score, other than that a score of less than 1.0 means no risk, 1.0 to 3.0 is low risk, 3.0 to 5.0 is medium risk and above 5.0 is high risk.
+        A tuple containing the moderated content (string) and a severity 
+        score (float). There are no strict rules or bounds to the severity 
+        score, other than that a score of less than 1.0 means no risk, 1.0 
+        to 3.0 is low risk, 3.0 to 5.0 is medium risk and above 5.0 is high 
+        risk.
     
-    This function moderates a string of content and calculates a severity score based on
-    rules loaded from the 'censorship.dat' file. These are already loaded as TIER1_WORDS, TIER2_PHRASES and TIER3_WORDS. Tier 1 corresponds to strong profanity, Tier 2 to scam/spam phrases and Tier 3 to mild profanity.
+    This function moderates a string of content and calculates a severity 
+    score based on rules loaded from the 'censorship.dat' file. These are 
+    already loaded as TIER1_WORDS, TIER2_PHRASES and TIER3_WORDS. Tier 1 
+    corresponds to strong profanity, Tier 2 to scam/spam phrases and Tier 3 
+    to mild profanity.
     
     You will be able to check the scores by logging in with the administrator account:
             username: admin
@@ -932,9 +968,60 @@ def moderate_content(content):
     Then, navigate to the /admin endpoint. (http://localhost:8080/admin)
     """
 
+    """
+    Censorship: implement the moderate_content function that automatically detects 
+    and censors inappropriate user posts on the platform. Your function should take a 
+    post, comment or user introduction as input and apply censorship rules to either 
+    clean or remove content, and supply a risk score that corresponds to the number 
+    and weight of violations in the content (note the risk classification thresholds 
+    in the code). The exact rules are detailed on the Rules page. Think of and implement 
+    one more moderation measure you think is important to keep the platform safe.
+    """
+
+    original_content = content
     moderated_content = content
+    cleaned_content = re.sub(r'[^A-Za-z0-9. ]+', '', original_content)
+    content_length = len(original_content)
     score = 0
     
+    TIER1_PATTERN = r'\b(' + '|'.join(TIER1_WORDS) + r')\b'
+    TIER2_PATTERN = r'\b(' + '|'.join(TIER2_PHRASES) + r')\b'
+    TIER3_PATTERN = r'\b(' + '|'.join(TIER3_WORDS) + r')\b'
+    common_domains = ['info','com','org','net','fi','link','xyz','biz','click','store']
+    LINK_PATTERN = r'\b(?:https?:\/\/|www\.)\S+\b|\S+\b(?:'+'|\.'.join(common_domains)+r')(?:\S*)?'
+    
+    tier1_matches = re.findall(TIER1_PATTERN, original_content, flags=re.IGNORECASE)
+    tier2_matches = re.findall(TIER2_PATTERN, original_content, flags=re.IGNORECASE)
+    tier3_matches = re.findall(TIER3_PATTERN, original_content, flags=re.IGNORECASE)
+    link_matches = re.findall(LINK_PATTERN, cleaned_content,flags=re.IGNORECASE)
+    excessive_cap = False
+    if(content_length > 15 and 
+       sum(c.isupper() for c in original_content)/content_length > 0.7):
+        excessive_cap = True
+    
+    # STAGE 1.1
+    # Rule 1.1.1
+    if(tier1_matches != []):
+        score = 5
+        moderated_content = "[content removed due to severe violation]"
+    # Rule 1.1.2
+    elif(tier2_matches != []):
+        score = 5
+        moderated_content = "[content removed due to spam/scam policy]"
+    # STAGE 1.2
+    else:
+        # Rule 1.2.1
+        if(tier3_matches != []):
+            score += len(tier3_matches)*2
+            moderated_content = re.sub(TIER3_PATTERN, '***', original_content, flags=re.IGNORECASE)
+        # Rule 1.2.2
+        elif(link_matches != []):
+            score += len(link_matches)*2
+            moderated_content = re.sub(LINK_PATTERN, '[link removed]', cleaned_content, flags=re.IGNORECASE)
+        # Rule 1.2.3
+        elif(excessive_cap):
+            score += 0.5
+
     return moderated_content, score
 
 
