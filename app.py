@@ -719,6 +719,7 @@ def admin_dashboard():
         user_dict['risk_sort_key'] = risk_sort_key
         user_dict['risk_score'] = round(user_risk_score, 2)
         user_dict['risk_score'] = min(5.0, round(user_risk_score, 2))
+        all_users.append(user_dict)
     
     all_users.sort(key=lambda x: x['risk_score'], reverse=True)
     total_users = len(all_users)
