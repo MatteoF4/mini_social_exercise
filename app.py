@@ -912,7 +912,9 @@ def recommend(user_id, filter_following):
                                     FROM posts p
                                     JOIN reactions r ON p.id = r.post_id
                                     WHERE r.user_id = ?
-                                        AND NOT r.reaction_type = 'angry'
+                                        AND NOT
+                                            (r.reaction_type = 'angry'
+                                            OR r.reaction_type = 'sad')
                                    """, (user_id,))
     # Return the 5 newest posts if the user never reacted to any post positively
     if(not reacted_posts_content):
