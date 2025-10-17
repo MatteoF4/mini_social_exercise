@@ -321,7 +321,7 @@ def user_profile(username):
                            followers_count=followers_count, 
                            following_count=following_count,
                            is_following=is_currently_following,
-                           danger=True)
+                           risky=True)
     
 
 @app.route('/u/<username>/followers')
@@ -718,8 +718,13 @@ def admin_dashboard():
         user_dict['risk_label'] = risk_label
         user_dict['risk_sort_key'] = risk_sort_key
         user_dict['risk_score'] = round(user_risk_score, 2)
-        user_dict['risk_score'] = min(5.0, round(user_risk_score, 2))
-        all_users.append(user_dict)
+        user_dict['risk_score'] = round(user_risk_score, 2)
+        if(user_dict['risk_score'] >= 15.0 and user_dict['username'] != 'admin'): # I chose 15.0 as arbitrary cap
+            db = get_db()
+            db.execute('DELETE FROM users WHERE id = ?', (user_dict['id'],))
+            db.commit()
+        else:
+            all_users.append(user_dict)
     
     all_users.sort(key=lambda x: x['risk_score'], reverse=True)
     total_users = len(all_users)

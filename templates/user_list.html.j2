@@ -5,7 +5,7 @@
 <div class="container mt-5 col-md-8 mx-auto">
   <!-- Heading for the page -->
   <h2 class="text-center border-bottom pb-2 mb-4">
-    <span>{{ title }} {{ user_display(user.username) }}</span>
+    <span>{{ title }} {{ user_display(user.username, risky) }}</span>
   </h2>
 
   <!-- Card to contain the list of users -->
@@ -16,7 +16,7 @@
         <div >
           {% for u in users %}
             <a href="{{ url_for('user_profile', username=u.username) }}" class="mb-3">
-              {{ user_display(u.username) }} <br>
+              {{ user_display(u.username, risky) }} <br>
             </a>
           {% endfor %}
         </div>
