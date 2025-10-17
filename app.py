@@ -897,16 +897,93 @@ def recommend(user_id, filter_following):
     - https://www.researchgate.net/publication/227268858_Recommender_Systems_Handbook
     """
 
-    recommended_posts = {} 
+    """
+    Recommendation Algorithm: Implement the recommend function. Identify a suitable, 
+    simple recommendation algorithm that will recommend 5 relevant posts on the 
+    “Recommended” tab based on the posts the user reacted to positively and the users 
+    they followed.
+    """
 
-    # identify liked posts from the user
-    # identify 10 most common words (exlclude grammar words) in those posts
-    # filter following
-    # select all postts
-    # removed already-liked posts and the ones he posted himself
-    # return the ones that contain the top 10 words
+    recommended_posts = []
 
-    return recommended_posts
+    # Identify all post user has reacted to with a positive reaction
+    reacted_posts_content = query_db("""
+                                    SELECT p.content
+                                    FROM posts p
+                                    JOIN reactions r ON p.id = r.post_id
+                                    WHERE r.user_id = ?
+                                        AND NOT r.reaction_type = 'angry'
+                                   """, (user_id,))
+    # Return the 5 newest posts if the user never reacted to any post positively
+    if(not reacted_posts_content):
+        return query_db("""
+                        SELECT 
+                            p.id, 
+                            p.content, 
+                            p.created_at, 
+                            u.username, 
+                            u.id as user_id
+                        FROM posts p 
+                        JOIN users u ON p.user_id = u.id
+                        WHERE p.user_id != ?
+                            AND p.id NOT IN (
+                                SELECT post_id 
+                                FROM reactions 
+                                WHERE user_id = ?
+                            )
+                        ORDER BY p.created_at DESC LIMIT 5
+                        """, (user_id, user_id,))
+    # Identify the 10 most common words in those posts, excluding useless ones
+    word_counts = collections.Counter()
+    stop_words = ['the', 'for', 'and', 'with', 'maybe', 'also', 'that', 'its']
+    for post in reacted_posts_content:
+        words = re.findall(r'\b\w+\b', post['content'].lower())
+        for word in words:
+            if(word not in stop_words and len(word) > 2):
+                word_counts[word] += 1
+    top_words = [word for word, _ in word_counts.most_common(10)]
+    # Select all posts in the platform
+    query = """
+        SELECT 
+            p.id, 
+            p.content, 
+            p.created_at, 
+            u.username, 
+            u.id AS user_id 
+        FROM posts p 
+        JOIN users u ON p.user_id = u.id
+        """
+    params = []
+    # Only select followed's posts if requested
+    if(filter_following):
+        query += """
+                    WHERE
+                        p.user_id 
+                    IN (
+                        SELECT 
+                            followed_id 
+                        FROM follows 
+                        WHERE follower_id = ?
+                    )
+                """
+        params.append(user_id)
+
+    others_posts = query_db(query, tuple(params))
+    # Ignore posts he already reacted to...
+    reacted_posts = [post['id'] for post in query_db("""
+                                                        SELECT 
+                                                            post_id AS id 
+                                                        FROM reactions 
+                                                        WHERE user_id = ?
+                                                    """, (user_id,))]
+    # ...and the ones he posted himself
+    for post in others_posts:
+        if(post['id'] not in reacted_posts and post['user_id'] != user_id):
+            if(any(keyword in post['content'].lower() for keyword in top_words)):
+                recommended_posts.append(post)
+    recommended_posts.sort(key=lambda p: p['created_at'], reverse=True)
+    # Return the 5 least recent ones
+    return recommended_posts[:5]
 
 # Task 3.2
 def user_risk_analysis(user_id):
@@ -1016,7 +1093,7 @@ def moderate_content(content):
     TIER2_PATTERN = r'\b(' + '|'.join(TIER2_PHRASES) + r')\b'
     TIER3_PATTERN = r'\b(' + '|'.join(TIER3_WORDS) + r')\b'
     common_domains = ['info','com','org','net','fi','link','xyz','biz','click','store']
-    LINK_PATTERN = r'\b(?:https?:\/\/|www\.)\S+\b|\S+\b(?:'+'|\.'.join(common_domains)+r')(?:\S*)?'
+    LINK_PATTERN = r'\b(?:https?:\/\/|www\.)\S+\b|\S+\b(?:'+'|'.join(common_domains)+r')(?:\S*)?'
     
     tier1_matches = re.findall(TIER1_PATTERN, original_content, flags=re.IGNORECASE)
     tier2_matches = re.findall(TIER2_PATTERN, original_content, flags=re.IGNORECASE)
