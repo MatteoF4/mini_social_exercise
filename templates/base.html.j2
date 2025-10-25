@@ -34,6 +34,11 @@
     <!-- Navbar Links -->
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav ms-auto align-items-center">
+        {% if session.get('username') == 'admin' %}
+        <li class="nav-item">
+          <a href="/admin" class="nav-link">Admin View</a>
+        </li>
+        {% endif %}
         <li class="nav-item">
           <a href="/" class="nav-link">Home</a>
         </li>
