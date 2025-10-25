@@ -63,6 +63,11 @@
         {% endif %}
       </div>
 
+      <!-- Report Button (triggers modal) -->
+      <div>
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addReportModal-{{ post.id }}">Report</button>
+      </div>
+
       <hr>
 
       <!-- Comments Section -->
@@ -115,6 +120,27 @@
             <textarea class="form-control" id="comment-content-{{ post.id }}" name="content" rows="3" required></textarea>
           </div>
           <button type="submit" class="btn btn-primary">Submit Comment</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal fade" id="addReportModal-{{ post.id }}" tabindex="-1" aria-labelledby="addReportModalLabel-{{ post.id }}" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addReportModalLabel-{{ post.id }}">Report the post</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form action="/posts/{{ post.id }}/report" method="POST">
+          <div class="mb-3">
+            <label for="report-content-{{ post.id }}" class="form-label">Reason</label>
+            <textarea class="form-control" id="report-content-{{ post.id }}" name="content" rows="3" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Submit Report</button>
         </form>
       </div>
     </div>

@@ -611,6 +611,32 @@ def unreact():
 
     return redirect(request.referrer or url_for('feed'))
 
+@app.route('/posts/<int:post_id>/report', methods=['POST'])
+def report_post(post_id):
+    """Handles submitting a report for a specific post."""
+    user_id = session.get('user_id')
+
+    # Block access if user is not logged in
+    if not user_id:
+        flash('You must be logged in to report a post.', 'danger')
+        return redirect(url_for('login'))
+
+    # Get reason from the submitted form
+    reason = request.form.get('content')
+
+    # Basic validation to ensure report reason is not empty
+    if reason and reason.strip():
+        db = get_db()
+        db.execute(
+            'INSERT INTO reports (post_id, reason, reporter_id) VALUES (?, ?, ?)',
+            (post_id, reason.strip(), user_id)
+        )
+        db.commit()
+        flash('Your report has been submitted.', 'success')
+    else:
+        flash('Report reason cannot be empty.', 'warning')
+
+    return redirect(request.referrer or url_for('post_detail', post_id=post_id))
 
 @app.route('/u/<int:user_id>/follow', methods=['POST'])
 def follow_user(user_id):
@@ -813,7 +839,7 @@ def admin_dashboard():
         report_dict = dict(report)
         author_created_dt = report_dict['user_created_at']
         author_age_days = (datetime.utcnow() - author_created_dt).days
-        report_score = author_age_days/100
+        report_score = author_age_days/100  # Older users' reports have more priority and are showed first
         report_dict['score_label'] = round(report_score, 1)
         reports.append(report_dict)
 

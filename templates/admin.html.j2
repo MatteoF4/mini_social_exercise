@@ -228,25 +228,33 @@
             <table class="table table-striped table-hover">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Created At</th>
                         <th>Reporter</th>
+                        <th>Created At</th>
                         <th>Reason</th>
                         <th>Reported Post</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% if reports %}
                     {% for report in reports %}
                     <tr>
-                        <td>{{ report.id }}</td>
+                        <td>
+                            <a href="{{ url_for('user_profile', username=report.reporter_username) }}">
+                                {{ report.reporter_username }}
+                            </a>
+                        </td>
                         <td>{{ report.created_at|datetimeformat }}</td>
-                        <td>{{ report.reporter_username }}</td>
                         <td title="{{ report.reason }}">{{ report.reason }}</td>
                         <td>
                             <a href="{{ url_for('post_detail', post_id=report.post_id) }}">
                                 {{ report.reported_content }}
                             </a>
+                        </td>
+                        <td>
+                            <form action="{{ url_for('admin_delete_post', post_id=report.post_id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');">
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}

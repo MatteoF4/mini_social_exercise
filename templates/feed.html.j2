@@ -125,6 +125,31 @@
         {% endif %}
       </div>
 
+      <!-- Report Button (triggers modal) -->
+      <div>
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addReportModal-{{ entry.post.id }}">Report</button>
+      </div>
+
+      <!-- Report Modal -->
+      <div class="modal fade" id="addReportModal-{{ entry.post.id }}" tabindex="-1" aria-labelledby="addReportModalLabel-{{ entry.post.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="addReportModalLabel-{{ entry.post.id }}">Report the post</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <form action="/posts/{{ entry.post.id }}/report" method="POST">
+                <div class="mb-3">
+                  <label for="report-content-{{ entry.post.id }}" class="form-label">Reason</label>
+                  <textarea class="form-control" id="report-content-{{ entry.post.id }}" name="content" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Report</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
 
      {% if entry.comments %}
       <hr>
