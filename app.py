@@ -698,10 +698,12 @@ def admin_dashboard():
         users_page = int(request.args.get('users_page', 1))
         posts_page = int(request.args.get('posts_page', 1))
         comments_page = int(request.args.get('comments_page', 1))
+        reports_page = int(request.args.get('reports_page', 1))
     except ValueError:
         users_page = 1
         posts_page = 1
         comments_page = 1
+        reports_page = 1
     
     current_tab = request.args.get('tab', 'users') # Default to 'users' tab
 
@@ -786,11 +788,42 @@ def admin_dashboard():
 
     comments.sort(key=lambda x: x['risk_score'], reverse=True) # Sort after fetching and scoring
 
+    # --- Reports Tab Data ---
+    reports_offset = (reports_page - 1) * PAGE_SIZE
+    total_reports_count = query_db('SELECT COUNT(*) AS count FROM reports', one=True)['count']
+    total_reports_pages = (total_reports_count + PAGE_SIZE - 1) // PAGE_SIZE
+
+    reports_raw = query_db(f'''
+        SELECT
+            r.id, 
+            r.reason, 
+            r.created_at, 
+            u.username AS reporter_username, 
+            u.created_at AS user_created_at, 
+            p.id AS post_id, 
+            p.content AS reported_content
+        FROM reports r 
+        JOIN users u ON r.reporter_id = u.id
+        JOIN posts p ON r.post_id = p.id
+        ORDER BY r.id
+        LIMIT ? OFFSET ?
+    ''', (PAGE_SIZE, reports_offset))
+    reports = []
+    for report in reports_raw:
+        report_dict = dict(report)
+        author_created_dt = report_dict['user_created_at']
+        author_age_days = (datetime.utcnow() - author_created_dt).days
+        report_score = author_age_days/100
+        report_dict['score_label'] = round(report_score, 1)
+        reports.append(report_dict)
+
+    reports.sort(key=lambda x: x['score_label'], reverse=True) # Sort after fetching and scoring
 
     return render_template('admin.html.j2', 
                            users=users, 
                            posts=posts, 
                            comments=comments,
+                           reports=reports,
                            
                            # Pagination for Users
                            users_page=users_page,
@@ -809,6 +842,12 @@ def admin_dashboard():
                            total_comments_pages=total_comments_pages,
                            comments_has_next=(comments_page < total_comments_pages),
                            comments_has_prev=(comments_page > 1),
+
+                           # Pagination for Reports
+                           reports_page=reports_page,
+                           total_reports_pages=total_reports_pages,
+                           reports_has_next=(reports_page < total_reports_pages),
+                           reports_has_prev=(reports_page > 1),
 
                            current_tab=current_tab,
                            PAGE_SIZE=PAGE_SIZE)
